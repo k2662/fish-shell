@@ -22,7 +22,7 @@ jobs:
           command: "mkdir build && cd build"
       - run:
           name: cmake configure
-          command: "cmake .. -DCMAKE_BUILD_TYPE=Release"
+          command: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release"
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/configuration-reference/#workflows
