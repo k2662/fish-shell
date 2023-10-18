@@ -15,6 +15,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: install dependencies
+          command: brew install cmake
+      - run:
           name: "cmake configure"
           command: "cmake .. -DCMAKE_BUILD_TYPE=Release"
 
