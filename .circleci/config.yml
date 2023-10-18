@@ -16,7 +16,7 @@ jobs:
       - checkout
       - run:
           name: install dependencies
-          command: brew install cmake
+          command: "brew install cmake rust"
       - run:
           name: install dependencies
           command: "mkdir build && cd build"
