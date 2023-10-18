@@ -18,7 +18,10 @@ jobs:
           name: install dependencies
           command: brew install cmake
       - run:
-          name: "cmake configure"
+          name: install dependencies
+          command: mkdir build && cd build
+      - run:
+          name: cmake configure
           command: "cmake .. -DCMAKE_BUILD_TYPE=Release"
 
 # Orchestrate jobs using workflows
