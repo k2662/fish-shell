@@ -34,7 +34,7 @@ jobs:
           command: "zstd fish_shell.tar"
       - store_artifacts:
           path: ./fish_shell.tar.zst
-          destination: fish-shell
+          destination: fish-shell.tar.zst
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/configuration-reference/#workflows
