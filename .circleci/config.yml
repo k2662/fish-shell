@@ -27,6 +27,9 @@ jobs:
           name: cmake configure
           command: "ninja -C build"
       - run:
+          name: cmake configure
+          command: "pip3 install pexpect"
+      - run:
           name: compress (tar)
           command: "tar -cvzf fish_shell.tar ./build"
       - run:
