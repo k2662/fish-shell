@@ -16,13 +16,16 @@ jobs:
       - checkout
       - run:
           name: install dependencies
-          command: "brew install cmake rust"
+          command: "brew install cmake rust ninja"
       - run:
           name: install dependencies
           command: "mkdir build && cd build"
       - run:
           name: cmake configure
           command: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release"
+      - run:
+          name: cmake configure
+          command: "cmake --build build"
       - store_artifacts:
           path: ./build
           destination: fish-shell
