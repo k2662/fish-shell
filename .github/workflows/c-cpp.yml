@@ -13,9 +13,9 @@ jobs:
 
     steps:
     - name: configure
-      run: brew install llvm cmake
+      run: brew install llvm dmd cmake rust zstd
     - uses: actions/checkout@v3
-    - name: make dirs
-      run: mkdir build && cd build
     - name: cmake configuring
-      run: cmake .. -DCMAKE_BUILD_TYPE=Release
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+    - name: cmake build
+      run: cmake --build build

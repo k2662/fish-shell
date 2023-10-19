@@ -16,7 +16,7 @@ jobs:
       - checkout
       - run:
           name: install dependencies
-          command: "brew install cmake rust ninja"
+          command: "brew install cmake rust ninja llvm dmd zstd"
       - run:
           name: install dependencies
           command: "mkdir build && cd build"
@@ -26,8 +26,14 @@ jobs:
       - run:
           name: cmake configure
           command: "cmake --build build"
+      - run:
+          name: compress (tar)
+          command: "tar -cvzf fish_shell.tar ./build"
+      - run:
+          name: compress (zstd)
+          command: "zstd fish_shell.tar"
       - store_artifacts:
-          path: ./build
+          path: ./fish_shell.tar.zst
           destination: fish-shell
 
 # Orchestrate jobs using workflows
