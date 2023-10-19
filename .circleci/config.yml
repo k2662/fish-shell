@@ -21,14 +21,14 @@ jobs:
           name: install dependencies
           command: "mkdir build && cd build"
       - run:
+          name: install pexpect
+          command: "pip3 install pexpect"
+      - run:
           name: cmake configure
           command: "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release"
       - run:
           name: cmake configure
           command: "ninja -C build"
-      - run:
-          name: cmake configure
-          command: "pip3 install pexpect"
       - run:
           name: compress (tar)
           command: "tar -cvzf fish_shell.tar ./build"
