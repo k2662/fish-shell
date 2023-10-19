@@ -25,7 +25,7 @@ jobs:
           command: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release"
       - run:
           name: cmake configure
-          command: "cmake --build build"
+          command: "ninja -C build"
       - run:
           name: compress (tar)
           command: "tar -cvzf fish_shell.tar ./build"
