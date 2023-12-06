@@ -13,9 +13,11 @@ jobs:
 
     steps:
     - name: configure
-      run: brew install llvm dmd cmake rust zstd
+      run: brew install llvm dmd cmake rust zstd gcc zig
+    - name: install pexpect
+      run: pip3 install pexpect
     - uses: actions/checkout@v3
     - name: cmake configuring
-      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWITH_GETTEXT=NO
     - name: cmake build
       run: cmake --build build
