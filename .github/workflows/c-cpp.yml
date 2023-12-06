@@ -12,12 +12,14 @@ jobs:
     runs-on: macos-latest
 
     steps:
+    - name: Update brew
+      run: brew upgrade
     - name: configure
       run: brew install llvm dmd cmake rust zstd gcc zig
     - name: install pexpect
       run: pip3 install pexpect
     - uses: actions/checkout@v3
     - name: cmake configuring
-      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWITH_GETTEXT=NO
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFISH_USE_SYSTEM_PCRE2=OFF -DWITH_GETTEXT=NO
     - name: cmake build
       run: cmake --build build
