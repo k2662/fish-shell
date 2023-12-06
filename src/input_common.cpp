@@ -61,7 +61,8 @@ using readb_result_t = int;
 
 static readb_result_t readb(int in_fd) {
     assert(in_fd >= 0 && "Invalid in fd");
-    universal_notifier_t& notifier = universal_notifier_t::default_notifier();
+    auto notifier_box = default_notifier();
+    const auto& notifier = *notifier_box;
     auto fdset_box = new_fd_readable_set();
     fd_readable_set_t& fdset = *fdset_box;
     for (;;) {
@@ -76,15 +77,8 @@ static readb_result_t readb(int in_fd) {
         int notifier_fd = notifier.notification_fd();
         fdset.add(notifier_fd);
 
-        // Get its suggested delay (possibly none).
-        // Note a 0 here means do not poll.
-        uint64_t timeout = kNoTimeout;
-        if (uint64_t usecs_delay = notifier.usec_delay_between_polls()) {
-            timeout = usecs_delay;
-        }
-
         // Here's where we call select().
-        int select_res = fdset.check_readable(timeout);
+        int select_res = fdset.check_readable(kNoTimeout);
         if (select_res < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                 // A signal.
@@ -99,8 +93,7 @@ static readb_result_t readb(int in_fd) {
         // The priority order is: uvars, stdin, ioport.
         // Check to see if we want a universal variable barrier.
         // This may come about through readability, or through a call to poll().
-        if ((fdset.test(notifier_fd) && notifier.notification_fd_became_readable(notifier_fd)) ||
-            notifier.poll()) {
+        if (fdset.test(notifier_fd) && notifier.notification_fd_became_readable(notifier_fd)) {
             return readb_uvar_notified;
         }
 
@@ -143,26 +136,25 @@ void update_wait_on_escape_ms(const environment_t& vars) {
     }
 }
 
-void update_wait_on_escape_ms_ffi(std::unique_ptr<env_var_t> fish_escape_delay_ms) {
-    if (!fish_escape_delay_ms) {
+void update_wait_on_escape_ms_ffi(bool empty, const wcstring& fish_escape_delay_ms) {
+    if (empty) {
         wait_on_escape_ms = WAIT_ON_ESCAPE_DEFAULT;
         return;
     }
 
-    long tmp = fish_wcstol(fish_escape_delay_ms->as_string().c_str());
+    long tmp = fish_wcstol(fish_escape_delay_ms.c_str());
     if (errno || tmp < 10 || tmp >= 5000) {
         std::fwprintf(stderr,
                       L"ignoring fish_escape_delay_ms: value '%ls' "
                       L"is not an integer or is < 10 or >= 5000 ms\n",
-                      fish_escape_delay_ms->as_string().c_str());
+                      fish_escape_delay_ms.c_str());
     } else {
         wait_on_escape_ms = static_cast<int>(tmp);
     }
 }
 
-
-// Update the wait_on_sequence_key_ms value in response to the fish_sequence_key_delay_ms user variable being
-// set.
+// Update the wait_on_sequence_key_ms value in response to the fish_sequence_key_delay_ms user
+// variable being set.
 void update_wait_on_sequence_key_ms(const environment_t& vars) {
     auto sequence_key_time_ms = vars.get_unless_empty(L"fish_sequence_key_delay_ms");
     if (!sequence_key_time_ms) {
@@ -181,18 +173,18 @@ void update_wait_on_sequence_key_ms(const environment_t& vars) {
     }
 }
 
-void update_wait_on_sequence_key_ms_ffi(std::unique_ptr<env_var_t> fish_sequence_key_delay_ms) {
-    if (!fish_sequence_key_delay_ms) {
+void update_wait_on_sequence_key_ms_ffi(bool empty, const wcstring& fish_sequence_key_delay_ms) {
+    if (empty) {
         wait_on_sequence_key_ms = WAIT_ON_SEQUENCE_KEY_INFINITE;
         return;
     }
 
-    long tmp = fish_wcstol(fish_sequence_key_delay_ms->as_string().c_str());
+    long tmp = fish_wcstol(fish_sequence_key_delay_ms.c_str());
     if (errno || tmp < 10 || tmp >= 5000) {
         std::fwprintf(stderr,
                       L"ignoring fish_sequence_key_delay_ms: value '%ls' "
                       L"is not an integer or is < 10 or >= 5000 ms\n",
-                      fish_sequence_key_delay_ms->as_string().c_str());
+                      fish_sequence_key_delay_ms.c_str());
     } else {
         wait_on_sequence_key_ms = static_cast<int>(tmp);
     }

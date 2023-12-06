@@ -44,7 +44,9 @@ struct wcstring_list_ffi_t {
 
     wcstring_list_ffi_t() = default;
     /* implicit */ wcstring_list_ffi_t(std::vector<wcstring> vals) : vals(std::move(vals)) {}
+    ~wcstring_list_ffi_t();
 
+    bool empty() const { return vals.empty(); }
     size_t size() const { return vals.size(); }
     const wcstring &at(size_t idx) const { return vals.at(idx); }
     void clear() { vals.clear(); }
@@ -62,6 +64,16 @@ struct wcstring_list_ffi_t {
     static void check_test_data(wcstring_list_ffi_t data);
 };
 
+/// Convert an iterable of strings to a list of wcharz_t.
+template <typename T>
+std::vector<wcharz_t> wcstring_list_to_ffi(const T &list) {
+    std::vector<wcharz_t> result;
+    for (const wcstring &str : list) {
+        result.push_back(str.c_str());
+    }
+    return result;
+}
+
 class autoclose_fd_t;
 
 /// Wide character version of opendir(). Note that opendir() is guaranteed to set close-on-exec by
@@ -77,18 +89,8 @@ int lwstat(const wcstring &file_name, struct stat *buf);
 /// Wide character version of access().
 int waccess(const wcstring &file_name, int mode);
 
-/// Wide character version of unlink().
-int wunlink(const wcstring &file_name);
-
 /// Wide character version of perror().
 void wperror(wcharz_t s);
-
-/// Wide character version of getcwd().
-wcstring wgetcwd();
-
-/// Wide character version of realpath function.
-/// \returns the canonicalized path, or none if the path is invalid.
-maybe_t<wcstring> wrealpath(const wcstring &pathname);
 
 /// Given an input path, "normalize" it:
 /// 1. Collapse multiple /s into a single /, except maybe at the beginning.
@@ -117,9 +119,6 @@ const wchar_t *wgettext_ptr(const wchar_t *in);
 
 /// Wide character version of mkdir.
 int wmkdir(const wcstring &name, int mode);
-
-/// Wide character version of rename.
-int wrename(const wcstring &oldName, const wcstring &newv);
 
 /// Write a wide string to a file descriptor. This avoids doing any additional allocation.
 /// This does NOT retry on EINTR or EAGAIN, it simply returns.
@@ -305,8 +304,6 @@ struct hash<file_id_t> {
 
 file_id_t file_id_for_fd(int fd);
 file_id_t file_id_for_fd(const autoclose_fd_t &fd);
-file_id_t file_id_for_path(const wcstring &path);
-file_id_t file_id_for_path(const std::string &path);
 
 extern const file_id_t kInvalidFileID;
 

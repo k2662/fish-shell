@@ -1,9 +1,11 @@
 use crate::env::environment::Environment;
 use std::cmp::Ordering;
+use std::fs::Metadata;
 use std::os::unix::prelude::{FileTypeExt, MetadataExt};
 use std::time::SystemTime;
 
 use super::prelude::*;
+use crate::nix::{getegid, geteuid};
 use crate::path::path_apply_working_directory;
 use crate::util::wcsfilecmp_glob;
 use crate::wcstringutil::split_string_tok;
@@ -12,7 +14,7 @@ use crate::wutil::{
     INVALID_FILE_ID,
 };
 use bitflags::bitflags;
-use libc::{getegid, geteuid, mode_t, uid_t, F_OK, PATH_MAX, R_OK, S_ISGID, S_ISUID, W_OK, X_OK};
+use libc::{mode_t, F_OK, PATH_MAX, R_OK, S_ISGID, S_ISUID, W_OK, X_OK};
 
 use super::shared::BuiltinCmd;
 
@@ -28,14 +30,9 @@ macro_rules! path_error {
     };
 }
 
-fn path_unknown_option(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    subcmd: &wstr,
-    opt: &wstr,
-) {
+fn path_unknown_option(parser: &Parser, streams: &mut IoStreams, subcmd: &wstr, opt: &wstr) {
     path_error!(streams, BUILTIN_ERR_UNKNOWN, subcmd, opt);
-    builtin_print_error_trailer(parser, streams, L!("path"));
+    builtin_print_error_trailer(parser, streams.err, L!("path"));
 }
 
 // How many bytes we read() at once.
@@ -46,7 +43,7 @@ const PATH_CHUNK_SIZE: usize = PATH_MAX as usize;
 fn arguments<'iter, 'args>(
     args: &'iter [&'args wstr],
     optind: &'iter mut usize,
-    streams: &mut io_streams_t,
+    streams: &mut IoStreams,
 ) -> Arguments<'args, 'iter> {
     Arguments::new(args, optind, streams, PATH_CHUNK_SIZE)
 }
@@ -160,13 +157,13 @@ struct Options<'args> {
 }
 
 #[inline]
-fn path_out(streams: &mut io_streams_t, opts: &Options<'_>, s: impl AsRef<wstr>) {
+fn path_out(streams: &mut IoStreams, opts: &Options<'_>, s: impl AsRef<wstr>) {
     let s = s.as_ref();
     if !opts.quiet {
         if !opts.null_out {
             streams
                 .out
-                .append_with_separation(s, separation_type_t::explicitly, true);
+                .append_with_separation(s, SeparationType::explicitly, true);
         } else {
             let mut output = WString::with_capacity(s.len() + 1);
             output.push_utfstr(s);
@@ -226,8 +223,8 @@ fn parse_opts<'args>(
     optind: &mut usize,
     n_req_args: usize,
     args: &mut [&'args wstr],
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
+    parser: &Parser,
+    streams: &mut IoStreams,
 ) -> Option<c_int> {
     let cmd = args[0];
     let mut args_read = Vec::with_capacity(args.len());
@@ -357,7 +354,7 @@ fn parse_opts<'args>(
     }
 
     // At this point we should not have optional args and be reading args from stdin.
-    if streams.stdin_is_directly_redirected() && args.len() > *optind {
+    if streams.stdin_is_directly_redirected && args.len() > *optind {
         path_error!(streams, BUILTIN_ERR_TOO_MANY_ARGUMENTS, cmd);
         return STATUS_INVALID_ARGS;
     }
@@ -366,8 +363,8 @@ fn parse_opts<'args>(
 }
 
 fn path_transform(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
+    parser: &Parser,
+    streams: &mut IoStreams,
     args: &mut [&wstr],
     func: impl Fn(&wstr) -> WString,
 ) -> Option<c_int> {
@@ -407,19 +404,11 @@ fn path_transform(
     }
 }
 
-fn path_basename(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_basename(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     path_transform(parser, streams, args, |s| wbasename(s).to_owned())
 }
 
-fn path_dirname(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_dirname(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     path_transform(parser, streams, args, |s| wdirname(s).to_owned())
 }
 
@@ -431,19 +420,11 @@ fn normalize_help(path: &wstr) -> WString {
     np
 }
 
-fn path_normalize(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_normalize(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     path_transform(parser, streams, args, normalize_help)
 }
 
-fn path_mtime(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_mtime(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     let mut opts = Options::default();
     opts.relative_valid = true;
     let mut optind = 0;
@@ -527,11 +508,7 @@ fn test_find_extension() {
     }
 }
 
-fn path_extension(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_extension(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     let mut opts = Options::default();
     let mut optind = 0;
     let retval = parse_opts(&mut opts, &mut optind, 0, args, parser, streams);
@@ -569,8 +546,8 @@ fn path_extension(
 }
 
 fn path_change_extension(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
+    parser: &Parser,
+    streams: &mut IoStreams,
     args: &mut [&wstr],
 ) -> Option<c_int> {
     let mut opts = Options::default();
@@ -617,11 +594,7 @@ fn path_change_extension(
     }
 }
 
-fn path_resolve(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_resolve(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     let mut opts = Options::default();
     let mut optind = 0;
     let retval = parse_opts(&mut opts, &mut optind, 0, args, parser, streams);
@@ -643,7 +616,7 @@ fn path_resolve(
                 let mut next = arg.into_owned();
                 // First add $PWD if we're relative
                 if !next.is_empty() && next.char_at(0) != '/' {
-                    next = path_apply_working_directory(&next, &parser.get_vars().get_pwd_slash());
+                    next = path_apply_working_directory(&next, &parser.vars().get_pwd_slash());
                 }
                 let mut rest = wbasename(&next).to_owned();
                 let mut real = None;
@@ -686,11 +659,7 @@ fn path_resolve(
     }
 }
 
-fn path_sort(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_sort(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     let mut opts = Options::default();
     opts.reverse_valid = true;
     opts.unique_valid = true;
@@ -763,13 +732,16 @@ fn path_sort(
     STATUS_CMD_OK
 }
 
-fn filter_path(opts: &Options, path: &wstr) -> bool {
+fn filter_path(opts: &Options, path: &wstr, uid: Option<u32>, gid: Option<u32>) -> bool {
     // TODO: Add moar stuff:
     // fifos, sockets, size greater than zero, setuid, ...
     // Nothing to check, file existence is checked elsewhere.
     if opts.types.is_none() && opts.perms.is_none() {
         return true;
     }
+
+    // We keep the metadata around for other checks if we have it.
+    let mut metadata: Option<Metadata> = None;
 
     if let Some(t) = opts.types {
         let mut type_ok = false;
@@ -797,6 +769,7 @@ fn filter_path(opts: &Options, path: &wstr) -> bool {
         if !type_ok {
             return false;
         }
+        metadata = Some(md);
     }
 
     if let Some(perm) = opts.perms {
@@ -823,17 +796,24 @@ fn filter_path(opts: &Options, path: &wstr) -> bool {
         }
         // access returns 0 on success,
         // -1 on failure. Yes, C can't even keep its bools straight.
-        if waccess(path, amode) != 0 {
+        // Skip this if we don't have a mode to check - the stat can do existence too.
+        // It's tempting to check metadata here if we have it,
+        // e.g. see if any read-bit is set for READ.
+        // That won't work for root.
+        if amode != 0 && waccess(path, amode) != 0 {
             return false;
         }
 
         // Permissions that require special handling
         if perm.is_special() {
-            let Ok(md) = wstat(path) else {
-                // Does not exist, even though we just checked we can access it
-                // likely some kind of race condition
-                // We might want to warn the user about this?
-                return false;
+            let md = match metadata {
+                Some(n) => n,
+                _ => {
+                    let Ok(md) = wstat(path) else {
+                        return false;
+                    };
+                    md
+                }
             };
 
             #[allow(clippy::if_same_then_else)]
@@ -841,11 +821,9 @@ fn filter_path(opts: &Options, path: &wstr) -> bool {
                 return false;
             } else if perm.contains(PermFlags::SGID) && (md.mode() as mode_t & S_ISGID) == 0 {
                 return false;
-            } else if perm.contains(PermFlags::USER) && (unsafe { geteuid() } != md.uid() as uid_t)
-            {
+            } else if perm.contains(PermFlags::USER) && uid != Some(md.uid()) {
                 return false;
-            } else if perm.contains(PermFlags::GROUP) && (unsafe { getegid() } != md.gid() as uid_t)
-            {
+            } else if perm.contains(PermFlags::GROUP) && gid != Some(md.gid()) {
                 return false;
             }
         }
@@ -856,8 +834,8 @@ fn filter_path(opts: &Options, path: &wstr) -> bool {
 }
 
 fn path_filter_maybe_is(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
+    parser: &Parser,
+    streams: &mut IoStreams,
     args: &mut [&wstr],
     is_is: bool,
 ) -> Option<c_int> {
@@ -881,8 +859,22 @@ fn path_filter_maybe_is(
         true => SplitBehavior::Null,
         false => SplitBehavior::InferNull,
     });
+
+    // If we're looking for the owner/group, get our euid/egid here once.
+    let uid = if opts.perms.unwrap_or_default().contains(PermFlags::USER) {
+        Some(geteuid())
+    } else {
+        None
+    };
+    let gid = if opts.perms.unwrap_or_default().contains(PermFlags::GROUP) {
+        Some(getegid())
+    } else {
+        None
+    };
+
     for (arg, _) in arguments.filter(|(f, _)| {
-        (opts.perms.is_none() && opts.types.is_none()) || (filter_path(&opts, f) != opts.invert)
+        (opts.perms.is_none() && opts.types.is_none())
+            || (filter_path(&opts, f, uid, gid) != opts.invert)
     }) {
         // If we don't have filters, check if it exists.
         if opts.perms.is_none() && opts.types.is_none() {
@@ -915,24 +907,16 @@ fn path_filter_maybe_is(
     }
 }
 
-fn path_filter(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+fn path_filter(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     path_filter_maybe_is(parser, streams, args, false)
 }
 
-fn path_is(parser: &mut parser_t, streams: &mut io_streams_t, args: &mut [&wstr]) -> Option<c_int> {
+fn path_is(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     path_filter_maybe_is(parser, streams, args, true)
 }
 
 /// The path builtin, for handling paths.
-pub fn path(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+pub fn path(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     let cmd = args[0];
     let argc = args.len();
 
@@ -940,7 +924,7 @@ pub fn path(
         streams
             .err
             .append(wgettext_fmt!(BUILTIN_ERR_MISSING_SUBCMD, cmd));
-        builtin_print_error_trailer(parser, streams, cmd);
+        builtin_print_error_trailer(parser, streams.err, cmd);
         return STATUS_INVALID_ARGS;
     }
 
@@ -966,7 +950,7 @@ pub fn path(
             streams
                 .err
                 .append(wgettext_fmt!(BUILTIN_ERR_INVALID_SUBCMD, cmd, subcmd_name));
-            builtin_print_error_trailer(parser, streams, cmd);
+            builtin_print_error_trailer(parser, streams.err, cmd);
             return STATUS_INVALID_ARGS;
         }
     };

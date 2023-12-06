@@ -59,11 +59,12 @@ pub enum WildcardResult {
     Overflow,
 }
 
-fn resolve_description<'f>(
+// This does something horrible refactored from an even more horrible function.
+fn resolve_description(
     full_completion: &wstr,
     completion: &mut &wstr,
     expand_flags: ExpandFlags,
-    description_func: Option<&'f dyn Fn(&wstr) -> WString>,
+    description_func: Option<&dyn Fn(&wstr) -> WString>,
 ) -> WString {
     if let Some(complete_sep_loc) = completion.find_char(PROG_COMPLETE_SEP) {
         // This completion has an embedded description, do not use the generic description.
@@ -171,12 +172,12 @@ fn wildcard_complete_internal(
         } else {
             flags
         };
-        if !out.add(Completion {
-            completion: out_completion.to_owned(),
-            description: out_desc,
-            flags: local_flags,
-            r#match: m,
-        }) {
+        if !out.add(Completion::new(
+            out_completion.to_owned(),
+            out_desc,
+            m,
+            local_flags,
+        )) {
             return WildcardResult::Overflow;
         }
         return WildcardResult::Match;
@@ -282,10 +283,10 @@ fn wildcard_complete_internal(
     }
 }
 
-pub fn wildcard_complete<'f>(
+pub fn wildcard_complete(
     s: &wstr,
     wc: &wstr,
-    desc_func: Option<&'f dyn Fn(&wstr) -> WString>,
+    desc_func: Option<&dyn Fn(&wstr) -> WString>,
     out: Option<&mut CompletionReceiver>,
     expand_flags: ExpandFlags,
     flags: CompleteFlags,
@@ -301,6 +302,7 @@ pub fn wildcard_complete<'f>(
 
 /// Obtain a description string for the file specified by the filename.
 ///
+/// It assumes the file exists and won't run stat() to confirm.
 /// It assumes the file exists and won't run stat() to confirm.
 /// The returned value is a string constant and should not be free'd.
 ///
@@ -894,7 +896,7 @@ mod expander {
         //
         // The result does not have a leading slash, but does have a trailing slash if non-empty.
         fn descend_unique_hierarchy(&mut self, start_point: &mut WString) -> WString {
-            assert!(!start_point.is_empty() && !start_point.starts_with('/'));
+            assert!(!start_point.is_empty() && start_point.starts_with('/'));
 
             let mut unique_hierarchy = WString::new();
             let abs_unique_hierarchy = start_point;
@@ -1184,7 +1186,7 @@ pub fn wildcard_match(
 // Check if the string has any unescaped wildcards (e.g. ANY_STRING).
 #[inline]
 #[must_use]
-fn wildcard_has_internal(s: impl AsRef<wstr>) -> bool {
+pub fn wildcard_has_internal(s: impl AsRef<wstr>) -> bool {
     s.as_ref()
         .chars()
         .any(|c| matches!(c, ANY_STRING | ANY_STRING_RECURSIVE | ANY_CHAR))
@@ -1192,7 +1194,7 @@ fn wildcard_has_internal(s: impl AsRef<wstr>) -> bool {
 
 /// Check if the specified string contains wildcards (e.g. *).
 #[must_use]
-fn wildcard_has(s: impl AsRef<wstr>) -> bool {
+pub fn wildcard_has(s: impl AsRef<wstr>) -> bool {
     let s = s.as_ref();
     let qmark_is_wild = !feature_test(FeatureFlag::qmark_noglob);
     // Fast check for * or ?; if none there is no wildcard.
@@ -1240,12 +1242,8 @@ mod ffi {
     }
 
     extern "Rust" {
-        #[cxx_name = "wildcard_match_ffi"]
-        fn wildcard_match_ffi(
-            str: &CxxWString,
-            wc: &CxxWString,
-            leading_dots_fail_to_match: bool,
-        ) -> bool;
+        #[cxx_name = "wildcard_match"]
+        fn wildcard_match_ffi(str: &CxxWString, wc: &CxxWString) -> bool;
 
         #[cxx_name = "wildcard_has"]
         fn wildcard_has_ffi(s: &CxxWString) -> bool;
@@ -1255,8 +1253,12 @@ mod ffi {
     }
 }
 
-fn wildcard_match_ffi(str: &CxxWString, wc: &CxxWString, leading_dots_fail_to_match: bool) -> bool {
-    wildcard_match(str.from_ffi(), wc.from_ffi(), leading_dots_fail_to_match)
+fn wildcard_match_ffi(str: &CxxWString, wc: &CxxWString) -> bool {
+    wildcard_match(
+        str.from_ffi(),
+        wc.from_ffi(),
+        /*leading_dots_fail_to_match*/ false,
+    )
 }
 
 fn wildcard_has_ffi(s: &CxxWString) -> bool {

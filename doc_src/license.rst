@@ -109,7 +109,7 @@ The precise terms and conditions for copying, distribution and modification foll
 License for PCRE2
 -----------------
 
-``fish`` contains code from the [PCRE2](http://www.pcre.org) library to support regular expressions. This code, created by Philip Hazel, is distributed under the terms of the BSD license. Copyright © 1997-2015 University of Cambridge.
+``fish`` contains code from the `PCRE2 <http://www.pcre.org>`_ library to support regular expressions. This code, created by Philip Hazel, is distributed under the terms of the BSD license. Copyright © 1997-2015 University of Cambridge.
 
 The BSD license follows.
 
@@ -180,7 +180,7 @@ Agreement.
 
 **License for CMake**
 
-The ``fish`` source code contains files from [CMake](https://cmake.org) to support the build system.
+The ``fish`` source code contains files from `CMake <https://cmake.org>`_ to support the build system.
 This code is distributed under the terms of a BSD-style license. Copyright 2000-2017 Kitware, Inc.
 and Contributors.
 
@@ -221,55 +221,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 **License for code derived from tmux**
 
-``fish`` contains code from [tmux](http://tmux.sourceforge.net), copyrighted by Nicholas Marriott <nicm@users.sourceforge.net> (2007), and made available under the OpenBSD license.
+``fish`` contains code from `tmux <http://tmux.sourceforge.net>`_, copyrighted by Nicholas Marriott <nicm@users.sourceforge.net> (2007), and made available under the OpenBSD license.
 
 The OpenBSD license is included below.
 
 Permission to use, copy, modify, and distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
 
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-----
-
-**License for UTF8**
-
-``fish`` also contains small amounts of code under the ISC license, namely the UTF-8 conversion functions. This code is copyright © 2007 Alexey Vatchenko \<av@bsdua.org>.
-
-The ISC license agreement follows.
-
-Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-----
-
-**License for flock**
-
-``fish`` also contains small amounts of code from NetBSD, namely the ``flock`` fallback function. This code is copyright 2001 The NetBSD Foundation, Inc., and derived from software contributed to The NetBSD Foundation by Todd Vierling.
-
-The NetBSD license follows.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
-BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
 
 ----
 

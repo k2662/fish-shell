@@ -1,12 +1,17 @@
 use crate::common::ToCString;
+use crate::complete::complete_invalidate_path;
 use crate::curses::{self, Term};
 use crate::env::{setenv_lock, unsetenv_lock, EnvMode, EnvStack, Environment};
 use crate::env::{CURSES_INITIALIZED, READ_BYTE_LIMIT, TERM_HAS_XN};
-use crate::ffi::is_interactive_session;
 use crate::flog::FLOG;
 use crate::function;
+use crate::input_common::{update_wait_on_escape_ms, update_wait_on_sequence_key_ms};
 use crate::output::ColorSupport;
+use crate::proc::is_interactive_session;
+use crate::screen::screen_set_midnight_commander_hack;
+use crate::screen::LAYOUT_CACHE_SHARED;
 use crate::wchar::prelude::*;
+use crate::wchar_ffi::WCharToFFI;
 use crate::wutil::fish_wcstoi;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -101,18 +106,6 @@ enum EnvCallback {
 #[derive(Default)]
 struct VarDispatchTable {
     table: HashMap<&'static wstr, EnvCallback>,
-}
-
-// TODO: Delete this after input_common is ported (and pass the input_function function directly).
-fn update_wait_on_escape_ms(vars: &EnvStack) {
-    let fish_escape_delay_ms = vars.get_unless_empty(L!("fish_escape_delay_ms"));
-    let var = crate::env::environment::env_var_to_ffi(fish_escape_delay_ms);
-    crate::ffi::update_wait_on_escape_ms_ffi(var);
-}
-fn update_wait_on_sequence_key_ms(vars: &EnvStack) {
-    let fish_sequence_key_delay_ms = vars.get_unless_empty(L!("fish_sequence_key_delay_ms"));
-    let var = crate::env::environment::env_var_to_ffi(fish_sequence_key_delay_ms);
-    crate::ffi::update_wait_on_sequence_key_ms_ffi(var);
 }
 
 impl VarDispatchTable {
@@ -249,9 +242,8 @@ fn handle_term_size_change(vars: &EnvStack) {
 }
 
 fn handle_fish_history_change(vars: &EnvStack) {
-    let fish_history = vars.get(L!("fish_history"));
-    let var = crate::env::env_var_to_ffi(fish_history);
-    crate::ffi::reader_change_history(&crate::ffi::history_session_id(var));
+    let session_id = crate::history::history_session_id(vars);
+    crate::ffi::reader_change_history(&session_id.to_ffi());
 }
 
 fn handle_fish_cursor_selection_mode_change(vars: &EnvStack) {
@@ -286,7 +278,7 @@ fn handle_function_path_change(_: &EnvStack) {
 }
 
 fn handle_complete_path_change(_: &EnvStack) {
-    crate::ffi::complete_invalidate_path();
+    complete_invalidate_path()
 }
 
 fn handle_tz_change(var_name: &wstr, vars: &EnvStack) {
@@ -588,7 +580,7 @@ fn apply_non_term_hacks(vars: &EnvStack) {
     // broken if you do '\r' after it like we normally do.
     // See https://midnight-commander.org/ticket/4258.
     if vars.get(L!("MC_SID")).is_some() {
-        crate::ffi::screen_set_midnight_commander_hack();
+        screen_set_midnight_commander_hack();
     }
 }
 
@@ -604,7 +596,8 @@ fn does_term_support_setting_title(vars: &EnvStack) -> bool {
     #[rustfmt::skip]
     const TITLE_TERMS: &[&wstr] = &[
         L!("xterm"), L!("screen"),    L!("tmux"),    L!("nxterm"),
-        L!("rxvt"),  L!("alacritty"), L!("wezterm"),
+        L!("rxvt"),  L!("alacritty"), L!("wezterm"), L!("rio"),
+        L!("foot"),
     ];
 
     let Some(term) = vars.get_unless_empty(L!("TERM")).map(|v| v.as_string()) else {
@@ -695,7 +688,7 @@ fn init_curses(vars: &EnvStack) {
 
     update_fish_color_support(vars);
     // Invalidate the cached escape sequences since they may no longer be valid.
-    crate::ffi::screen_clear_layout_cache_ffi();
+    unsafe { LAYOUT_CACHE_SHARED.lock().unwrap() }.clear();
     CURSES_INITIALIZED.store(true, Ordering::Relaxed);
 }
 

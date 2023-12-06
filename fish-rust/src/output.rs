@@ -6,7 +6,7 @@ use crate::env::EnvVar;
 use crate::wchar::prelude::*;
 use bitflags::bitflags;
 use std::cell::RefCell;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::io::{Result, Write};
 use std::os::fd::RawFd;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -35,10 +35,10 @@ extern "C" fn output_set_color_support(val: u8) {
 }
 
 /// Returns true if we think tparm can handle outputting a color index.
-fn term_supports_color_natively(term: &Term, c: i32) -> bool {
+fn term_supports_color_natively(term: &Term, c: u8) -> bool {
     #[allow(clippy::int_plus_one)]
     if let Some(max_colors) = term.max_colors {
-        max_colors >= c + 1
+        max_colors >= usize::try_from(c).unwrap() + 1
     } else {
         false
     }
@@ -61,7 +61,7 @@ fn index_for_color(c: RgbColor) -> u8 {
 }
 
 fn write_color_escape(outp: &mut Outputter, term: &Term, todo: &CStr, mut idx: u8, is_fg: bool) {
-    if term_supports_color_natively(term, idx.into()) {
+    if term_supports_color_natively(term, idx) {
         // Use tparm to emit color escape.
         outp.tputs_if_some(&tparm1(todo, idx.into()));
     } else {
@@ -406,13 +406,13 @@ impl Outputter {
 
     /// Begins buffering. Output will not be automatically flushed until a corresponding
     /// end_buffering() call.
-    fn begin_buffering(&mut self) {
+    pub fn begin_buffering(&mut self) {
         self.buffer_count += 1;
         assert!(self.buffer_count > 0, "buffer_count overflow");
     }
 
     /// Balance a begin_buffering() call.
-    fn end_buffering(&mut self) {
+    pub fn end_buffering(&mut self) {
         assert!(self.buffer_count > 0, "buffer_count underflow");
         self.buffer_count -= 1;
         self.maybe_flush();
@@ -467,9 +467,9 @@ impl Outputter {
 
     /// Convenience cover over tputs, in recognition of the fact that our Term has Optional fields.
     /// If `str` is Some, write it with tputs and return true. Otherwise, return false.
-    pub fn tputs_if_some(&mut self, str: &Option<CString>) -> bool {
+    pub fn tputs_if_some(&mut self, str: &Option<impl AsRef<CStr>>) -> bool {
         if let Some(str) = str {
-            self.tputs(str);
+            self.tputs(str.as_ref());
             true
         } else {
             false
@@ -523,7 +523,7 @@ pub fn best_color(candidates: &[RgbColor], support: ColorSupport) -> RgbColor {
 /// TODO: This code should be refactored to enable sharing with builtin_set_color.
 ///       In particular, the argument parsing still isn't fully capable.
 #[allow(clippy::collapsible_else_if)]
-fn parse_color(var: &EnvVar, is_background: bool) -> RgbColor {
+pub fn parse_color(var: &EnvVar, is_background: bool) -> RgbColor {
     let mut is_bold = false;
     let mut is_underline = false;
     let mut is_italics = false;
@@ -604,7 +604,7 @@ fn make_buffering_outputter_ffi() -> Box<Outputter> {
     Box::new(Outputter::new_buffering())
 }
 
-type RgbColorFFI = crate::ffi::rgb_color_t;
+pub type RgbColorFFI = crate::ffi::rgb_color_t;
 use crate::wchar_ffi::AsWstr;
 impl Outputter {
     fn set_color_ffi(&mut self, fg: &RgbColorFFI, bg: &RgbColorFFI) {

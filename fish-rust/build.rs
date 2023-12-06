@@ -1,6 +1,7 @@
 use rsconf::{LinkType, Target};
 use std::env;
 use std::error::Error;
+use std::process::Stdio;
 
 fn main() {
     for key in ["DOCDIR", "DATADIR", "SYSCONFDIR", "BINDIR"] {
@@ -19,6 +20,14 @@ fn main() {
                 .unwrap_or("./build".into()),
         )
         .compile("libcompat.a");
+
+    if compiles("fish-rust/src/cfg/w_exitcode.cpp") {
+        println!("cargo:rustc-cfg=HAVE_WAITSTATUS_SIGNAL_RET");
+    }
+
+    if compiles("fish-rust/src/cfg/spawn.c") {
+        println!("cargo:rustc-cfg=FISH_USE_POSIX_SPAWN");
+    }
 
     let rust_dir = env!("CARGO_MANIFEST_DIR");
     let target_dir =
@@ -58,41 +67,49 @@ fn main() {
         "fish-rust/src/abbrs.rs",
         "fish-rust/src/ast.rs",
         "fish-rust/src/builtins/shared.rs",
-        "fish-rust/src/builtins/function.rs",
         "fish-rust/src/common.rs",
-        "fish-rust/src/env/env_ffi.rs",
+        "fish-rust/src/complete.rs",
+        "fish-rust/src/editable_line.rs",
         "fish-rust/src/env_dispatch.rs",
+        "fish-rust/src/env/env_ffi.rs",
         "fish-rust/src/event.rs",
+        "fish-rust/src/exec.rs",
+        "fish-rust/src/expand.rs",
         "fish-rust/src/fd_monitor.rs",
         "fish-rust/src/fd_readable_set.rs",
         "fish-rust/src/fds.rs",
         "fish-rust/src/ffi_init.rs",
         "fish-rust/src/ffi_tests.rs",
-        "fish-rust/src/fish.rs",
         "fish-rust/src/fish_indent.rs",
-        "fish-rust/src/fork_exec/spawn.rs",
+        "fish-rust/src/fish.rs",
         "fish-rust/src/function.rs",
         "fish-rust/src/future_feature_flags.rs",
         "fish-rust/src/highlight.rs",
+        "fish-rust/src/history.rs",
+        "fish-rust/src/io.rs",
         "fish-rust/src/job_group.rs",
         "fish-rust/src/kill.rs",
-        "fish-rust/src/null_terminated_array.rs",
+        "fish-rust/src/operation_context.rs",
         "fish-rust/src/output.rs",
+        "fish-rust/src/pager.rs",
         "fish-rust/src/parse_constants.rs",
+        "fish-rust/src/parser.rs",
         "fish-rust/src/parse_tree.rs",
         "fish-rust/src/parse_util.rs",
         "fish-rust/src/print_help.rs",
+        "fish-rust/src/proc.rs",
+        "fish-rust/src/reader.rs",
         "fish-rust/src/redirection.rs",
+        "fish-rust/src/screen.rs",
         "fish-rust/src/signal.rs",
         "fish-rust/src/smoke.rs",
         "fish-rust/src/termsize.rs",
         "fish-rust/src/threads.rs",
         "fish-rust/src/timer.rs",
         "fish-rust/src/tokenizer.rs",
-        "fish-rust/src/topic_monitor.rs",
         "fish-rust/src/trace.rs",
         "fish-rust/src/util.rs",
-        "fish-rust/src/wait_handle.rs",
+        "fish-rust/src/universal_notifier/mod.rs",
         "fish-rust/src/wildcard.rs",
     ];
     cxx_build::bridges(&source_files)
@@ -147,6 +164,18 @@ fn detect_features(target: Target) {
             Ok(false) => (),
         }
     }
+}
+
+fn compiles(file: &str) -> bool {
+    rsconf::rebuild_if_path_changed(file);
+    let mut command = cc::Build::new()
+        .flag("-fsyntax-only")
+        .get_compiler()
+        .to_command();
+    command.arg(file);
+    command.stdout(Stdio::null());
+    command.stderr(Stdio::null());
+    command.status().unwrap().success()
 }
 
 /// Detect if we're being compiled for a BSD-derived OS, allowing targeting code conditionally with

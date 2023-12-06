@@ -1538,6 +1538,10 @@ You can change the settings of fish by changing the values of certain variables.
 
    sets how long fish waits for another key after seeing an escape, to distinguish pressing the escape key from the start of an escape sequence. The default is 30ms. Increasing it increases the latency but allows pressing escape instead of alt for alt+character bindings. For more information, see :ref:`the chapter in the bind documentation <cmd-bind-escape>`.
 
+.. envvar:: fish_sequence_key_delay_ms
+
+   sets how long fish waits for another key after seeing a key that is part of a longer sequence, to disambiguate. For instance if you had bound ``\cx\ce`` to open an editor, fish would wait for this long in milliseconds to see a ctrl-e after a ctrl-x. If the time elapses, it will handle it as a ctrl-x (by default this would copy the current commandline to the clipboard). See also :ref:`Key sequences <interactive-key-sequences>`.
+
 .. envvar:: fish_complete_path
 
    determines where fish looks for completion. When trying to complete for a command, fish looks for files in the directories in this variable.
@@ -1922,7 +1926,13 @@ Configuration files are run in the following order:
 
   - ``$__fish_config_dir/conf.d`` (by default, ``~/.config/fish/conf.d/``)
   - ``$__fish_sysconf_dir/conf.d`` (by default, ``/etc/fish/conf.d/``)
-  - Directories for others to ship configuration snippets for their software. Fish searches the directories under ``$__fish_user_data_dir`` (usually ``~/.local/share/fish``, controlled by the ``XDG_DATA_HOME`` environment variable) and in the ``XDG_DATA_DIRS`` environment variable for a ``fish/vendor_conf.d`` directory; if not defined, the default value of ``XDG_DATA_DIRS`` is ``/usr/share/fish/vendor_conf.d`` and ``/usr/local/share/fish/vendor_conf.d``, unless your distribution customized this.
+  - Directories for others to ship configuration snippets for their software:
+
+    - the directories under ``$__fish_user_data_dir`` (usually ``~/.local/share/fish``, controlled by the ``XDG_DATA_HOME`` environment variable)
+    - a ``fish/vendor_conf.d`` directory in the directories listed in ``$XDG_DATA_DIRS`` (default ``/usr/share/fish/vendor_conf.d`` and ``/usr/local/share/fish/vendor_conf.d``)
+
+    These directories are also accessible in ``$__fish_vendor_confdirs``.
+    Note that changing that in a running fish won't do anything as by that point the directories have already been read.
 
   If there are multiple files with the same name in these directories, only the first will be executed.
   They are executed in order of their filename, sorted (like globs) in a natural order (i.e. "01" sorts before "2").
@@ -1935,6 +1945,8 @@ Configuration files are run in the following order:
 These files are all executed on the startup of every shell. If you want to run a command only on starting an interactive shell, use the exit status of the command ``status --is-interactive`` to determine if the shell is interactive. If you want to run a command only when using a login shell, use ``status --is-login`` instead. This will speed up the starting of non-interactive or non-login shells.
 
 If you are developing another program, you may want to add configuration for all users of fish on a system. This is discouraged; if not carefully written, they may have side-effects or slow the startup of the shell. Additionally, users of other shells won't benefit from the fish-specific configuration. However, if they are required, you can install them to the "vendor" configuration directory. As this path may vary from system to system, ``pkg-config`` should be used to discover it: ``pkg-config --variable confdir fish``.
+
+For system integration, fish also ships a file called ``__fish_build_paths.fish``. This can be customized during build, for instance because your system requires special paths to be used.
 
 .. _featureflags:
 
